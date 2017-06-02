@@ -10,9 +10,13 @@ from django.test.utils import override_settings
 from django.utils import translation
 from mock import ANY, Mock, call, patch
 from nose.tools import assert_true
+from rest_framework.test import APIRequestFactory
 
+from common.test.utils import MockSignalHandlerMixin, disable_signal
 from course_modes.models import CourseMode
 from course_modes.tests.factories import CourseModeFactory
+from discussion_api import api
+from discussion_api.tests.utils import CommentsServiceMockMixin
 from django_comment_client.constants import TYPE_ENTRY, TYPE_SUBCATEGORY
 from django_comment_client.permissions import get_team
 from django_comment_client.tests.group_id import (
@@ -20,6 +24,7 @@ from django_comment_client.tests.group_id import (
     GroupIdAssertionMixin,
     NonCohortedTopicGroupIdTestMixin
 )
+from django_comment_client.base.views import create_thread
 from django_comment_client.tests.unicode import UnicodeTestMixin
 from django_comment_client.tests.utils import (
     CohortedTestCase,
@@ -28,8 +33,13 @@ from django_comment_client.tests.utils import (
     topic_name_to_id
 )
 from django_comment_client.utils import strip_none
-from django_comment_common.models import CourseDiscussionSettings, ForumsConfig
-from django_comment_common.utils import ThreadContext
+from django_comment_common.models import (
+    CourseDiscussionSettings,
+    ForumsConfig,
+    FORUM_ROLE_STUDENT,
+    Role
+)
+from django_comment_common.utils import ThreadContext, seed_permissions_roles
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect
 from lms.djangoapps.discussion import views
 from lms.djangoapps.discussion.views import course_discussions_settings_handler
@@ -40,7 +50,8 @@ from openedx.core.djangoapps.course_groups.tests.helpers import config_course_co
 from openedx.core.djangoapps.course_groups.tests.test_views import CohortViewsTestCase
 from openedx.core.djangoapps.util.testing import ContentGroupTestCase
 from openedx.features.enterprise_support.tests.mixins.enterprise import EnterpriseTestConsentRequired
-from student.tests.factories import CourseEnrollmentFactory, UserFactory
+from student.roles import CourseStaffRole, UserBasedRole
+from student.tests.factories import CourseAccessRoleFactory, CourseEnrollmentFactory, UserFactory
 from util.testing import UrlResetMixin
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore
@@ -369,18 +380,18 @@ class SingleThreadQueryCountTestCase(ForumsEnableMixin, ModuleStoreTestCase):
         # course is outside the context manager that is verifying the number of queries,
         # and with split mongo, that method ends up querying disabled_xblocks (which is then
         # cached and hence not queried as part of call_single_thread).
-        (ModuleStoreEnum.Type.mongo, False, 1, 5, 3, 13, 1),
-        (ModuleStoreEnum.Type.mongo, False, 50, 5, 3, 13, 1),
+        (ModuleStoreEnum.Type.mongo, False, 1, 6, 4, 16, 4),
+        (ModuleStoreEnum.Type.mongo, False, 50, 6, 4, 16, 4),
         # split mongo: 3 queries, regardless of thread response size.
-        (ModuleStoreEnum.Type.split, False, 1, 3, 3, 12, 1),
-        (ModuleStoreEnum.Type.split, False, 50, 3, 3, 12, 1),
+        (ModuleStoreEnum.Type.split, False, 1, 3, 3, 15, 4),
+        (ModuleStoreEnum.Type.split, False, 50, 3, 3, 15, 4),
 
         # Enabling Enterprise integration should have no effect on the number of mongo queries made.
-        (ModuleStoreEnum.Type.mongo, True, 1, 5, 3, 13, 1),
-        (ModuleStoreEnum.Type.mongo, True, 50, 5, 3, 13, 1),
+        (ModuleStoreEnum.Type.mongo, True, 1, 6, 4, 16, 4),
+        (ModuleStoreEnum.Type.mongo, True, 50, 6, 4, 16, 4),
         # split mongo: 3 queries, regardless of thread response size.
-        (ModuleStoreEnum.Type.split, True, 1, 3, 3, 12, 1),
-        (ModuleStoreEnum.Type.split, True, 50, 3, 3, 12, 1),
+        (ModuleStoreEnum.Type.split, True, 1, 3, 3, 15, 4),
+        (ModuleStoreEnum.Type.split, True, 50, 3, 3, 15, 4),
     )
     @ddt.unpack
     def test_number_of_mongo_queries(
@@ -1884,3 +1895,93 @@ class CourseDiscussionsHandlerTestCase(DividedDiscussionsTestCase):
             CourseDiscussionSettings.COHORT, CourseDiscussionSettings.ENROLLMENT_TRACK
         ]
         self.assertEqual(response, expected_response)
+
+
+@disable_signal(api, 'thread_created')
+@disable_signal(api, 'thread_voted')
+@patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+class ThreadViewedEventTestCase(
+        ForumsEnableMixin,
+        CommentsServiceMockMixin,
+        UrlResetMixin,
+        SharedModuleStoreTestCase,
+        MockSignalHandlerMixin
+):
+    """
+    Forum thread views are expected to launch analytics events. Test these here.
+    """
+
+    CATEGORY_ID = 'i4x-edx-discussion-id'
+    CATEGORY_NAME = 'Discussion 1'
+    PARENT_CATEGORY_NAME = 'Chapter 1'
+
+    DUMMY_TITLE = 'Dummy title'
+
+    @patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+    def setUp(self):
+        super(ThreadViewedEventTestCase, self).setUp()
+        self.course = CourseFactory.create()
+        seed_permissions_roles(self.course.id)
+        self.student = UserFactory.create()
+        CourseEnrollmentFactory(user=self.student, course_id=self.course.id)
+        self.staff = UserFactory.create(is_staff=True)
+        UserBasedRole(user=self.staff, role=CourseStaffRole.ROLE).add_course(self.course.id)
+        self.category = ItemFactory.create(
+            parent_location=self.course.location,
+            category='discussion',
+            discussion_id=self.CATEGORY_ID,
+            discussion_category=self.PARENT_CATEGORY_NAME,
+            discussion_target=self.CATEGORY_NAME,
+        )
+        self.team = CourseTeamFactory.create(
+            name='Team 1',
+            course_id=self.course.id,
+            topic_id='arbitrary-topic-id',
+            discussion_topic_id=self.category.discussion_id,
+        )
+
+    @patch('eventtracking.tracker.emit')
+    @patch('lms.lib.comment_client.utils.requests.request', autospec=True)
+    def test_thread_viewed_event(self, __, mock_emit):
+        create_request = RequestFactory().post('dummy_url', {
+            'thread_type': 'discussion',
+            'body': 'Test text',
+            'title': self.DUMMY_TITLE,
+            'auto_subscribe': True,
+        })
+        create_request.user = self.staff
+        create_request.view_name = 'create_thread'
+        create_response = create_thread(
+            create_request,
+            course_id=unicode(self.course.id),
+            commentable_id=self.category.discussion_id
+        )
+        self.assertEqual(create_response.status_code, 200)
+        thread = create_response.data['thread_data']
+
+        get_request = RequestFactory().get('dummy_url', {'username': self.student.username})
+        get_request.user = self.student
+        get_request.view_name = 'single_thread'
+        views.single_thread(get_request, unicode(self.course.id), self.category.discussion_id, thread_id)
+
+        expected_event = {
+            'id': thread_id,
+            'title': self.DUMMY_TITLE,
+            'commentable_id': self.category.discussion_id,
+            'category_id': self.category.dicussion_id,
+            'category_name': self.category.discussion_target,
+            'user_forums_roles': [FORUM_ROLE_STUDENT],
+            'user_course_roles': [],
+            'target_username': self.staff.username,
+            'team_id': self.team.id,
+        }
+        expected_event_items = expected_event.items()
+
+        event_name, event = mock_emit.call_args[0]
+        self.assertEqual(event_name, 'edx.forum.thread.viewed')
+        event_items = event.items()
+        self.assertTrue(kv_pair in event_items for kv_pair in expected_event_items)
+        expected_path = '/courses/{0}/discussion/forum/{1}/threads/{2}'.format(
+            self.course.id, self.category.dicussion_id, thread_id
+        )
+        self.assertTrue(event['url'].endswith(expected_path))
