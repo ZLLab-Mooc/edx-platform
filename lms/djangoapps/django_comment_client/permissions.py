@@ -9,6 +9,8 @@ from opaque_keys.edx.keys import CourseKey
 
 from django_comment_common.models import all_permissions_for_user_in_course
 from django_comment_common.utils import get_course_discussion_settings
+from django_comment_common.models import CourseDiscussionSettings
+
 from lms.djangoapps.teams.models import CourseTeam
 from lms.lib.comment_client import Thread
 from request_cache.middleware import RequestCache, request_cached
@@ -42,9 +44,9 @@ def get_team(commentable_id):
 
     return team
 
-
 def _check_condition(user, condition, content):
     """ Check whether or not the given condition applies for the given user and content. """
+
     def check_open(_user, content):
         """ Check whether the content is open. """
         try:
@@ -126,9 +128,11 @@ def _check_conditions_permissions(user, permissions, course_id, content, user_gr
                 # the content group of the commenter/poster,
                 # then the current user does not have group edit permissions.
                 division_scheme = get_course_discussion_settings(course_id).division_scheme
-                if division_scheme is 'none' or user_group_id is None or content_user_group is None\
-                        or user_group_id != content_user_group:
-                    return False
+                if (division_scheme is CourseDiscussionSettings.NONE
+                    or user_group_id is None
+                    or content_user_group is None
+                    or user_group_id != content_user_group):
+                        return False
             return has_permission(user, per, course_id=course_id)
         elif isinstance(per, list) and operator in ["and", "or"]:
             results = [test(user, x, operator="and") for x in per]
@@ -136,6 +140,7 @@ def _check_conditions_permissions(user, permissions, course_id, content, user_gr
                 return True in results
             elif operator == "and":
                 return False not in results
+
     return test(user, permissions, operator="or")
 
 

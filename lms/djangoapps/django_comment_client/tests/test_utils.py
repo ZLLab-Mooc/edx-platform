@@ -1610,6 +1610,8 @@ class PermissionsTestCase(ModuleStoreTestCase):
         content = {}
         content['user_id'] = '1'
         content['type'] = 'thread'
+        moderator.roles.add(Role.objects.get(name="Moderator", course_id=cls.course.id))
+
 
         user = mock.Mock()
         user.id = 1
@@ -1654,6 +1656,51 @@ class PermissionsTestCase(ModuleStoreTestCase):
                 'can_vote': False,
                 'can_report': True
             })
+
+    # def test_get_ability_with_group_moderator(self):
+    #     """
+    #     Tests that group moderator has moderator permissions with threads and comments within their group,
+    #     but no permissions outside of their group, or if the discussions is not divided.
+    #     """
+    #     group_moderator = UserFactory(username='group_moderator', email='group_moderator@edx.org', is_staff=False)
+    #     user_within_group = mock.Mock()
+    #     user_within_group.id = 2
+    #     user_not_within_group = mock.Mock()
+    #     user_not_within_group.id = 3
+    #
+    #
+    #     def check_perm():
+    #         mock.patch('django_comment_client.utils.check_permissions_by_view')
+    #
+    #     # Group moderator should not have moderator permissions if the discussions are not divided.
+    #     content = {'user_id': '2', 'type': 'thread'}
+    #     self.assertEqual(utils.get_ability(None, content, global_staff), {
+    #         'editable': True,
+    #         'can_reply': True,
+    #         'can_delete': True,
+    #         'can_openclose': True,
+    #         'can_vote': True,
+    #         'can_report': True
+    #     })
+    #
+    #
+    #     # Group moderator should have moderator permissions within their group if the discussions are divided.
+    #     set_discussion_division_settings(self.course.id, enable_cohorts=True)
+    #     content = {'user_id': '2', 'type': 'thread'}
+    #
+    #     check_perm.return_value = False
+    #     self.assertEqual(utils.get_ability(None, content, global_staff), {
+    #         'editable': True,
+    #         'can_reply': True,
+    #         'can_delete': True,
+    #         'can_openclose': True,
+    #         'can_vote': True,
+    #         'can_report': True
+    #     })
+    #
+    #     # Group moderator should not have moderator permissions outside of their group.
+    #     content = {'user_id': '3', 'type': 'thread'}
+
 
     def test_is_content_authored_by(self):
         content = {}

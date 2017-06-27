@@ -20,7 +20,6 @@ FORUM_ROLE_GROUP_MODERATOR = ugettext_noop('Group Moderator')
 FORUM_ROLE_COMMUNITY_TA = ugettext_noop('Community TA')
 FORUM_ROLE_STUDENT = ugettext_noop('Student')
 
-
 @receiver(post_save, sender=CourseEnrollment)
 def assign_default_role_on_enrollment(sender, instance, **kwargs):
     """

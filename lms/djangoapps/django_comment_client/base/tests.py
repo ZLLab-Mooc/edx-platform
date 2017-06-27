@@ -23,8 +23,8 @@ from django_comment_client.tests.group_id import (
 )
 from django_comment_client.tests.unicode import UnicodeTestMixin
 from django_comment_client.tests.utils import CohortedTestCase, ForumsEnableMixin
-from django_comment_common.models import Role
-from django_comment_common.utils import ThreadContext, seed_permissions_roles
+from django_comment_common.models import Role, CourseDiscussionSettings
+from django_comment_common.utils import ThreadContext, seed_permissions_roles, set_course_discussion_settings
 from lms.djangoapps.teams.tests.factories import CourseTeamFactory, CourseTeamMembershipFactory
 from lms.lib.comment_client import Thread
 from student.tests.factories import CourseAccessRoleFactory, CourseEnrollmentFactory, UserFactory
@@ -216,12 +216,14 @@ class ViewsTestCaseMixin(object):
             self.password = 'test'  # pylint: disable=attribute-defined-outside-init
 
             # Create the user and make them active so we can log them in.
-            self.student = User.objects.create_user(uname, email, self.password)  # pylint: disable=attribute-defined-outside-init
+            self.student = User.objects.create_user(uname, email,
+                                                    self.password)  # pylint: disable=attribute-defined-outside-init
             self.student.is_active = True
             self.student.save()
 
             # Add a discussion moderator
-            self.moderator = UserFactory.create(password=self.password)  # pylint: disable=attribute-defined-outside-init
+            self.moderator = UserFactory.create(
+                password=self.password)  # pylint: disable=attribute-defined-outside-init
 
             # Enroll the student in the course
             CourseEnrollmentFactory(user=self.student,
@@ -443,12 +445,14 @@ class ViewsTestCase(
             self.password = 'test'  # pylint: disable=attribute-defined-outside-init
 
             # Create the user and make them active so we can log them in.
-            self.student = User.objects.create_user(uname, email, self.password)  # pylint: disable=attribute-defined-outside-init
+            self.student = User.objects.create_user(uname, email,
+                                                    self.password)  # pylint: disable=attribute-defined-outside-init
             self.student.is_active = True
             self.student.save()
 
             # Add a discussion moderator
-            self.moderator = UserFactory.create(password=self.password)  # pylint: disable=attribute-defined-outside-init
+            self.moderator = UserFactory.create(
+                password=self.password)  # pylint: disable=attribute-defined-outside-init
 
             # Enroll the student in the course
             CourseEnrollmentFactory(user=self.student,
@@ -1097,6 +1101,7 @@ class ViewPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleStor
                 return self._create_response_mock(comment_data)
             else:
                 raise ArgumentError("Bad url to mock request")
+
         mock_request.side_effect = handle_request
 
     def test_endorse_response_as_staff(self, mock_request):
@@ -1142,7 +1147,6 @@ class CreateThreadUnicodeTestCase(
         SharedModuleStoreTestCase,
         UnicodeTestMixin,
         MockRequestSetupMixin):
-
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1185,7 +1189,6 @@ class UpdateThreadUnicodeTestCase(
         UnicodeTestMixin,
         MockRequestSetupMixin
 ):
-
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1207,7 +1210,8 @@ class UpdateThreadUnicodeTestCase(
             "user_id": str(self.student.id),
             "closed": False,
         })
-        request = RequestFactory().post("dummy_url", {"body": text, "title": text, "thread_type": "question", "commentable_id": "test_commentable"})
+        request = RequestFactory().post("dummy_url", {"body": text, "title": text, "thread_type": "question",
+                                                      "commentable_id": "test_commentable"})
         request.user = self.student
         request.view_name = "update_thread"
         response = views.update_thread(request, course_id=unicode(self.course.id), thread_id="dummy_thread_id")
@@ -1228,7 +1232,6 @@ class CreateCommentUnicodeTestCase(
         UnicodeTestMixin,
         MockRequestSetupMixin
 ):
-
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1276,7 +1279,6 @@ class UpdateCommentUnicodeTestCase(
         UnicodeTestMixin,
         MockRequestSetupMixin
 ):
-
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1318,6 +1320,7 @@ class CreateSubCommentUnicodeTestCase(
     """
     Make sure comments under a response can handle unicode.
     """
+
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1380,8 +1383,22 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
         # Non-team commentables can be edited by any student.
         ('student_not_in_team', 'course_commentable_id', 200),
         # Moderators can always operator on threads within a team, regardless of team membership.
-        ('moderator', 'team_commentable_id', 200)
+        ('moderator', 'team_commentable_id', 200),
+        # Group moderators have regular student privileges for creating a thread and commenting
+        ('group_moderator', 'team_commentable_id', 200)
     ]
+
+    def change_divided_discussion_settings(self, scheme):
+        """
+        Change divided discussion settings for the current course.
+        """
+        set_course_discussion_settings(
+            self.course.id,
+            enable_cohorts=True,
+            divided_discussions=[],
+            always_divide_inline_discussions=True,
+            division_scheme=scheme,
+        )
 
     @classmethod
     def setUpClass(cls):
@@ -1399,14 +1416,16 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
         cls.password = "test password"
         seed_permissions_roles(cls.course.id)
 
-        # Create 3 users-- student in team, student not in team, discussion moderator
-        cls.student_in_team = UserFactory.create(password=cls.password)
-        cls.student_not_in_team = UserFactory.create(password=cls.password)
-        cls.moderator = UserFactory.create(password=cls.password)
-        CourseEnrollmentFactory(user=cls.student_in_team, course_id=cls.course.id)
-        CourseEnrollmentFactory(user=cls.student_not_in_team, course_id=cls.course.id)
-        CourseEnrollmentFactory(user=cls.moderator, course_id=cls.course.id)
+        # Create 4 users-- student in team, student not in team, discussion moderator, and group discussion moderator
+        def create_users_and_enroll():
+            student = UserFactory.create(password=cls.password)
+            CourseEnrollmentFactory(user=student, course_id=cls.course.id)
+            return student
+
+        cls.student_in_team, cls.student_not_in_team, cls.moderator, cls.group_moderator = [create_users_and_enroll()
+                                                                                            for i in range(4)]
         cls.moderator.roles.add(Role.objects.get(name="Moderator", course_id=cls.course.id))
+        cls.group_moderator.roles.add(Role.objects.get(name="Group Moderator", course_id=cls.course.id))
 
         # Create a team.
         cls.team_commentable_id = "team_discussion_id"
@@ -1418,6 +1437,7 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
         )
 
         cls.team.add_user(cls.student_in_team)
+        cls.team.add_user(cls.group_moderator)
 
         # Dummy commentable ID not linked to a team
         cls.course_commentable_id = "course_level_commentable"
@@ -1433,24 +1453,32 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
 
     @ddt.data(
         # student_in_team will be able to update his own post, regardless of team membership
-        ('student_in_team', 'student_in_team', 'team_commentable_id', 200),
-        ('student_in_team', 'student_in_team', 'course_commentable_id', 200),
+        ('student_in_team', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
+        ('student_in_team', 'student_in_team', 'course_commentable_id', 200, CourseDiscussionSettings.NONE),
         # students can only update their own posts
-        ('student_in_team', 'moderator', 'team_commentable_id', 401),
+        ('student_in_team', 'moderator', 'team_commentable_id', 401, CourseDiscussionSettings.NONE),
         # Even though student_not_in_team is not in the team, he can still modify posts he created while in the team.
-        ('student_not_in_team', 'student_not_in_team', 'team_commentable_id', 200),
+        ('student_not_in_team', 'student_not_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
         # Moderators can change their own posts and other people's posts.
-        ('moderator', 'moderator', 'team_commentable_id', 200),
-        ('moderator', 'student_in_team', 'team_commentable_id', 200),
+        ('moderator', 'moderator', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
+        ('moderator', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
+        # Group moderator can do operations on commentables within their team if the course is divided
+        ('group_moderator', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.ENROLLMENT_TRACK),
+        # Group moderators cannot do operations on commentables outside of their team
+        ('group_moderator', 'student_not_in_team', 'team_commentable_id', 401,
+         CourseDiscussionSettings.ENROLLMENT_TRACK),
+        # Group moderators cannot do operations when the course is not divided
+        ('group_moderator', 'student_in_team', 'team_commentable_id', 401, CourseDiscussionSettings.NONE)
     )
     @ddt.unpack
-    def test_update_thread(self, user, thread_author, commentable_id, status_code, mock_request):
+    def test_update_thread(self, user, thread_author, commentable_id, status_code, division_scheme, mock_request):
         """
         Verify that update_thread is limited to thread authors and privileged users (team membership does not matter).
         """
         commentable_id = getattr(self, commentable_id)
         # thread_author is who is marked as the author of the thread being updated.
         thread_author = getattr(self, thread_author)
+        self.change_divided_discussion_settings(division_scheme)
         self._setup_mock(
             user, mock_request,  # user is the person making the request.
             {
@@ -1473,17 +1501,25 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
 
     @ddt.data(
         # Students can delete their own posts
-        ('student_in_team', 'student_in_team', 'team_commentable_id', 200),
+        ('student_in_team', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
         # Moderators can delete any post
-        ('moderator', 'student_in_team', 'team_commentable_id', 200),
+        ('moderator', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.NONE),
         # Others cannot delete posts
-        ('student_in_team', 'moderator', 'team_commentable_id', 401),
-        ('student_not_in_team', 'student_in_team', 'team_commentable_id', 401)
+        ('student_in_team', 'moderator', 'team_commentable_id', 401, CourseDiscussionSettings.NONE),
+        ('student_not_in_team', 'student_in_team', 'team_commentable_id', 401, CourseDiscussionSettings.NONE),
+        # Group moderator can do operations on commentables within their team if the course is divided
+        ('group_moderator', 'student_in_team', 'team_commentable_id', 200, CourseDiscussionSettings.ENROLLMENT_TRACK),
+        # Group moderators cannot do operations on commentables outside of their team
+        ('group_moderator', 'student_not_in_team', 'team_commentable_id', 401,
+         CourseDiscussionSettings.ENROLLMENT_TRACK),
+        # Group moderators cannot do operations when the course is not divided
+        ('group_moderator', 'student_not_in_team', 'team_commentable_id', 401, CourseDiscussionSettings.NONE)
     )
     @ddt.unpack
-    def test_delete_comment(self, user, comment_author, commentable_id, status_code, mock_request):
+    def test_delete_comment(self, user, comment_author, commentable_id, status_code, division_scheme, mock_request):
         commentable_id = getattr(self, commentable_id)
         comment_author = getattr(self, comment_author)
+        self.change_divided_discussion_settings(division_scheme)
 
         self._setup_mock(user, mock_request, {
             "closed": False,
@@ -1608,26 +1644,6 @@ class TeamsPermissionsTestCase(ForumsEnableMixin, UrlResetMixin, SharedModuleSto
         )
         self.assertEqual(response.status_code, status_code)
 
-    @ddt.data(*ddt_permissions_args)
-    @ddt.unpack
-    def test_commentable_actions(self, user, commentable_id, status_code, __):
-        """
-        Verify that following of commentables is limited to members of the team or users with
-        'edit_content' permission.
-        """
-        commentable_id = getattr(self, commentable_id)
-        # mock_request is not used because Commentables don't exist in comment service.
-        self.client.login(username=getattr(self, user).username, password=self.password)
-        for action in ["follow_commentable", "unfollow_commentable"]:
-            response = self.client.post(
-                reverse(
-                    action,
-                    kwargs={"course_id": unicode(self.course.id), "commentable_id": commentable_id}
-                )
-            )
-            self.assertEqual(response.status_code, status_code)
-
-
 TEAM_COMMENTABLE_ID = 'test-team-discussion'
 
 
@@ -1638,6 +1654,7 @@ class ForumEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase, MockReque
     """
     Forum actions are expected to launch analytics events. Test these here.
     """
+
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
@@ -1740,24 +1757,24 @@ class ForumEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase, MockReque
     @patch('eventtracking.tracker.emit')
     @patch('lms.lib.comment_client.utils.requests.request', autospec=True)
     @ddt.data((
-        'create_thread',
-        'edx.forum.thread.created', {
-            'thread_type': 'discussion',
-            'body': 'Test text',
-            'title': 'Test',
-            'auto_subscribe': True
-        },
-        {'commentable_id': TEAM_COMMENTABLE_ID}
+            'create_thread',
+            'edx.forum.thread.created', {
+                'thread_type': 'discussion',
+                'body': 'Test text',
+                'title': 'Test',
+                'auto_subscribe': True
+            },
+            {'commentable_id': TEAM_COMMENTABLE_ID}
     ), (
-        'create_comment',
-        'edx.forum.response.created',
-        {'body': 'Test comment', 'auto_subscribe': True},
-        {'thread_id': 'test_thread_id'}
+            'create_comment',
+            'edx.forum.response.created',
+            {'body': 'Test comment', 'auto_subscribe': True},
+            {'thread_id': 'test_thread_id'}
     ), (
-        'create_sub_comment',
-        'edx.forum.comment.created',
-        {'body': 'Another comment'},
-        {'comment_id': 'dummy_comment_id'}
+            'create_sub_comment',
+            'edx.forum.comment.created',
+            {'body': 'Another comment'},
+            {'comment_id': 'dummy_comment_id'}
     ))
     @ddt.unpack
     def test_team_events(self, view_name, event_name, view_data, view_kwargs, mock_request, mock_emit):
@@ -1819,7 +1836,6 @@ class ForumEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase, MockReque
 
 @attr(shard=2)
 class UsersEndpointTestCase(ForumsEnableMixin, SharedModuleStoreTestCase, MockRequestSetupMixin):
-
     @classmethod
     def setUpClass(cls):
         # pylint: disable=super-method-not-called
