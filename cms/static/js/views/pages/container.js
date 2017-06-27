@@ -17,7 +17,6 @@ define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page
             events: {
                 'click .edit-button': 'editXBlock',
                 'click .visibility-button': 'editVisibilitySettings',
-                'click .test-visibility-button': 'testEditVisibilitySettings',
                 'click .duplicate-button': 'duplicateXBlock',
                 'click .move-button': 'showMoveXBlockModal',
                 'click .delete-button': 'deleteXBlock',
@@ -194,15 +193,11 @@ define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page
             editVisibilitySettings: function(event) {
                 this.editXBlock(event, {
                     view: 'visibility_view',
-                    // Translators: "title" is the name of the current component being edited.
+                    // Translators: "title" is the name of the current component or unit being edited.
                     titleFormat: gettext('Editing access for: %(title)s'),
                     viewSpecificClasses: '',
                     modalSize: 'med'
                 });
-            },
-            
-            testEditVisibilitySettings: function(event) {
-                console.log('clicked');
             },
 
             duplicateXBlock: function(event) {
