@@ -5,10 +5,10 @@
 define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page',
         'common/js/components/utils/view_utils', 'js/views/container', 'js/views/xblock',
         'js/views/components/add_xblock', 'js/views/modals/edit_xblock', 'js/views/modals/move_xblock_modal',
-        'js/models/xblock_info', 'js/views/xblock_string_field_editor', 'js/views/pages/container_subviews',
+        'js/models/xblock_info', 'js/views/xblock_string_field_editor', 'js/views/xblock_access_editor','js/views/pages/container_subviews',
         'js/views/unit_outline', 'js/views/utils/xblock_utils'],
     function($, _, Backbone, gettext, BasePage, ViewUtils, ContainerView, XBlockView, AddXBlockComponent,
-              EditXBlockModal, MoveXBlockModal, XBlockInfo, XBlockStringFieldEditor, ContainerSubviews,
+              EditXBlockModal, MoveXBlockModal, XBlockInfo, XBlockStringFieldEditor, XBlockAccessEditor, ContainerSubviews,
               UnitOutlineView, XBlockUtils) {
         'use strict';
         var XBlockContainerPage = BasePage.extend({
@@ -17,6 +17,7 @@ define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page
             events: {
                 'click .edit-button': 'editXBlock',
                 'click .visibility-button': 'editVisibilitySettings',
+                'click .test-visibility-button': 'testEditVisibilitySettings',
                 'click .duplicate-button': 'duplicateXBlock',
                 'click .move-button': 'showMoveXBlockModal',
                 'click .delete-button': 'deleteXBlock',
@@ -45,6 +46,10 @@ define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page
                     model: this.model
                 });
                 this.nameEditor.render();
+                this.accessEditor = new XBlockAccessEditor({
+                    el: this.$('.wrapper-xblock-field')
+                });
+                this.accessEditor.render();
                 if (this.options.action === 'new') {
                     this.nameEditor.$('.xblock-field-value-edit').click();
                 }
@@ -194,6 +199,10 @@ define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page
                     viewSpecificClasses: '',
                     modalSize: 'med'
                 });
+            },
+            
+            testEditVisibilitySettings: function(event) {
+                console.log('clicked');
             },
 
             duplicateXBlock: function(event) {
