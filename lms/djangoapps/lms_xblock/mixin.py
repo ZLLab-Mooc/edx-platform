@@ -11,12 +11,14 @@ from xblock.validation import ValidationMessage
 from xmodule.modulestore.inheritance import UserPartitionList
 from xmodule.partitions.partitions import NoSuchUserPartitionError, NoSuchUserPartitionGroupError
 
+
 # Please do not remove, this is a workaround for Django 1.8.
 # more information can be found here: https://openedx.atlassian.net/browse/PLAT-902
 _ = lambda text: text
 
 INVALID_USER_PARTITION_VALIDATION = _(u"This component's access settings refer to deleted or invalid group configurations.")
 INVALID_USER_PARTITION_GROUP_VALIDATION = _(u"This component's access settings refer to deleted or invalid groups.")
+NONSENSICAL_ACCESS_RESTRICTION = _(u"This component's access settings contradict the unit's access settings.")
 
 
 class GroupAccessDict(Dict):
@@ -142,6 +144,62 @@ class LmsBlockMixin(XBlockMixin):
 
         raise NoSuchUserPartitionError("could not find a UserPartition with ID [{}]".format(user_partition_id))
 
+    def get_parent_unit(self):
+        """
+        Finds xblock's parent unit if it exists.
+
+        Returns:
+            xblock: Returns the parent unit xblock if it exists.
+            If no parent unit exists, returns None.
+        """
+        xblock = self
+        while xblock:
+            xblock = xblock.get_parent()
+            if xblock is None:
+                return None
+            parent = xblock.get_parent()
+            if parent is None:
+                return None
+            if parent.category == "sequential":
+                return xblock
+
+    def _has_nonsensical_access_settings(self):
+        """
+        Checks if a block's group access settings do not make sense.
+
+        By nonsensical access settings, we mean a component's access
+        settings which contradict the unit level access in that they
+        restrict access to a component in such a way that no one can
+        see it.
+        For example, if unit level access is set to "Verified", and
+        a component within the unit is set to "Audit", that setting
+        does not make sense because the component will not be
+        visible to anybody.
+        Note:  The only time this contradiction can occur is when
+        a component restricts access to the same partition but a
+        different group than the unit.
+
+        Returns:
+            bool: True if the block is a component and its access
+            settings contradict the unit level access.
+        """
+        parent_unit = self.get_parent_unit()
+        if not parent_unit:
+            return False
+
+        unit_group_access = parent_unit.group_access
+        component_group_access = self.group_access
+
+        for user_partition_id, unit_group_ids in unit_group_access.iteritems():
+            try:
+                component_group_ids = component_group_access[user_partition_id]
+                if component_group_ids and unit_group_ids and not set(unit_group_ids).issubset(set(component_group_ids)):
+                    return True
+            except KeyError:
+                return False
+        else:
+            return False
+
     def validate(self):
         """
         Validates the state of this xblock instance.
@@ -150,11 +208,17 @@ class LmsBlockMixin(XBlockMixin):
         validation = super(LmsBlockMixin, self).validate()
         has_invalid_user_partitions = False
         has_invalid_groups = False
+
         for user_partition_id, group_ids in self.group_access.iteritems():
             try:
                 user_partition = self._get_user_partition(user_partition_id)
             except NoSuchUserPartitionError:
                 has_invalid_user_partitions = True
+            except AttributeError:
+                try:
+                    user_partition = self.user_partitions[user_partition_id]
+                except KeyError:
+                    has_invalid_user_partitions = True
             else:
                 # Skip the validation check if the partition has been disabled
                 if user_partition.active:
@@ -171,6 +235,7 @@ class LmsBlockMixin(XBlockMixin):
                     INVALID_USER_PARTITION_VALIDATION
                 )
             )
+
         if has_invalid_groups:
             validation.add(
                 ValidationMessage(
@@ -178,4 +243,13 @@ class LmsBlockMixin(XBlockMixin):
                     INVALID_USER_PARTITION_GROUP_VALIDATION
                 )
             )
+
+        if self._has_nonsensical_access_settings():
+            validation.add(
+                ValidationMessage(
+                    ValidationMessage.ERROR,
+                    NONSENSICAL_ACCESS_RESTRICTION
+                )
+            )
+
         return validation
