@@ -5,11 +5,11 @@
 define(['jquery', 'underscore', 'backbone', 'gettext', 'js/views/pages/base_page',
         'common/js/components/utils/view_utils', 'js/views/container', 'js/views/xblock',
         'js/views/components/add_xblock', 'js/views/modals/edit_xblock', 'js/views/modals/move_xblock_modal',
-        'js/models/xblock_info', 'js/views/xblock_string_field_editor', 'js/views/xblock_access_editor','js/views/pages/container_subviews',
-        'js/views/unit_outline', 'js/views/utils/xblock_utils'],
+        'js/models/xblock_info', 'js/views/xblock_string_field_editor', 'js/views/xblock_access_editor',
+        'js/views/pages/container_subviews', 'js/views/unit_outline', 'js/views/utils/xblock_utils'],
     function($, _, Backbone, gettext, BasePage, ViewUtils, ContainerView, XBlockView, AddXBlockComponent,
-              EditXBlockModal, MoveXBlockModal, XBlockInfo, XBlockStringFieldEditor, XBlockAccessEditor, ContainerSubviews,
-              UnitOutlineView, XBlockUtils) {
+              EditXBlockModal, MoveXBlockModal, XBlockInfo, XBlockStringFieldEditor, XBlockAccessEditor,
+              ContainerSubviews, UnitOutlineView, XBlockUtils) {
         'use strict';
         var XBlockContainerPage = BasePage.extend({
             // takes XBlockInfo as a model
