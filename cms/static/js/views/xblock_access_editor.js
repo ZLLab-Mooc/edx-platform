@@ -4,6 +4,7 @@
  */
 define(['js/views/baseview'],
     function(BaseView) {
+        'use strict';
         var XBlockAccessEditor = BaseView.extend({
             // takes XBlockInfo as a model
             initialize: function() {
