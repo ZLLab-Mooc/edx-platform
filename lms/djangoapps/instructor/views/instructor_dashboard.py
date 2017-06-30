@@ -40,6 +40,7 @@ from courseware.access import has_access
 from courseware.courses import get_course_by_id, get_studio_url
 from django_comment_client.utils import available_division_schemes, has_forum_access
 from django_comment_common.models import FORUM_ROLE_ADMINISTRATOR, CourseDiscussionSettings
+from django_comment_common.utils import get_course_discussion_settings
 from edxmako.shortcuts import render_to_response
 from lms.djangoapps.courseware.module_render import get_module_by_usage_id
 from openedx.core.djangoapps.course_groups.cohorts import DEFAULT_COHORT_NAME, get_course_cohorts, is_course_cohorted
@@ -485,6 +486,7 @@ def _section_membership(course, access, is_white_label):
         'section_key': 'membership',
         'section_display_name': _('Membership'),
         'access': access,
+        'division_scheme': get_course_discussion_settings(course_key).division_scheme,
         'ccx_is_enabled': ccx_enabled,
         'is_white_label': is_white_label,
         'enroll_button_url': reverse('students_update_enrollment', kwargs={'course_id': unicode(course_key)}),

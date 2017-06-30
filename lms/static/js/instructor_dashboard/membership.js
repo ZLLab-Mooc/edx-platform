@@ -92,13 +92,17 @@ such that the value can be defined later than this assignment (file load order).
         __extends(AuthListWidget, _super);  // eslint-disable-line no-use-before-define
         function AuthListWidget($container, rolename, $errorSection) {  // eslint-disable-line no-shadow
             var msg,
-                authlistwidget = this;
+                authlistwidget = this,
+                labels_list = [gettext('Username'), gettext('Email'), gettext('Revoke access')];
             this.rolename = rolename;
             this.$errorSection = $errorSection;
+            if (this.rolename === 'Group Moderator') {
+                labels_list = [gettext('Username'), gettext('Email'), gettext('Group'), gettext('Revoke access')]
+            }
             AuthListWidget.__super__.constructor.call(this, $container, {  // eslint-disable-line no-underscore-dangle
                 title: $container.data('display-name'),
                 info: $container.data('info-text'),
-                labels: [gettext('Username'), gettext('Email'), gettext('Revoke access')],
+                labels: labels_list,
                 add_placeholder: gettext('Enter username or email'),
                 add_btn_label: $container.data('add-button-label'),
                 add_handler: function(input) {
@@ -161,20 +165,33 @@ such that the value can be defined later than this assignment (file load order).
                             return authlistwidgetreloadlist.reload_list();
                         });
                     });
+                    if (authlistwidgetreloadlist.rolename === 'Group Moderator') {
+                        // if (member.group_name === null){
+                        //     debugger;
+
+                            // return authlistwidgetreloadlist.show_errors('Test Error');
+                            // return authlistwidgetreloadlist.add_row([member.username, member.email,
+                            //     'Discussions are not divided', $revokeBtn]
+                            // );
+                        // }
+                        return authlistwidgetreloadlist.add_row([member.username, member.email,
+                            member.group_name, $revokeBtn]
+                        );
+                    }
                     return authlistwidgetreloadlist.add_row([member.username, member.email, $revokeBtn]);
                 });
             });
         };
 
         AuthListWidget.prototype.clear_errors = function() {
-            var ref, result;
-            result = (this.$error_section) != null ? ref.text('') : undefined;
+            var result;
+            result = this.$errorSection !== undefined ? this.$errorSection.text('') : undefined;
             return result;
         };
 
         AuthListWidget.prototype.show_errors = function(msg) {
-            var ref, result;
-            result = (this.$error_section) != null ? ref.text(msg) : undefined;
+            var result;
+            result = this.$errorSection !== undefined ? this.$errorSection.text(msg) : undefined;
             return result;
         };
 
