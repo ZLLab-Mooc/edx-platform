@@ -14,7 +14,9 @@ from certificates.models import \
     CertificateWhitelist, \
     GeneratedCertificate
 from certificates.tasks import generate_certificate
+from common.djangoapps.student.models import CourseEnrollment
 from courseware import courses
+from lms.djangoapps.grades.new.course_grade_factory import CourseGradeFactory
 from openedx.core.djangoapps.models.course_details import COURSE_PACING_CHANGE
 from openedx.core.djangoapps.signals.signals import COURSE_GRADE_NOW_PASSED
 
@@ -110,7 +112,8 @@ def _listen_for_track_change(sender, user, **kwargs):  # pylint: disable=unused-
     Catches a track change signal, determines user status, fires "generate cert" task
 
     """
-    # get user courses
-    # check for passing
-    # send downstream
-    pass
+    user_enrollments = CourseEnrollment.enrollments_for_user(user=user)
+    for enrollment in user_enrollments:
+        # This will read and update a user grade, if passed, will fire
+        # 'COURSE_GRADE_NOW_PASSED' signal downstream
+        CourseGradeFactory().read(user, course=enrollment.course.id)
