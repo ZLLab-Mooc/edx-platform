@@ -46,6 +46,8 @@ from openedx.core.djangoapps.xmodule_django.models import CourseKeyField
 from openedx.core.djangolib.model_mixins import DeprecatedModelMixin
 from openedx.core.storage import get_storage
 
+from .signals import LEARNER_NOW_VERIFIED
+
 log = logging.getLogger(__name__)
 
 
@@ -516,6 +518,12 @@ class PhotoVerification(StatusModel):
         self.reviewing_service = service
         self.status = "approved"
         self.save()
+
+        # Emit signal to find and generate eligible certificates
+        LEARNER_NOW_VERIFIED.send_robust(
+            sender=PhotoVerification,
+            user=self.user
+        )
 
     @status_before_must_be("must_retry", "submitted", "approved", "denied")
     def deny(self,

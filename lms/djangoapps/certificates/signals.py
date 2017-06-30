@@ -102,3 +102,15 @@ def _listen_for_passing_grade(sender, user, course_id, **kwargs):  # pylint: dis
             user=user.id,
             course=course_id
         ))
+
+
+@receiver(LEARNER_NOW_VERIFIED, dispatch_uid="learner_track_changed")
+def _listen_for_track_change(sender, user, **kwargs):  # pylint: disable=unused-argument
+    """
+    Catches a track change signal, determines user status, fires "generate cert" task
+
+    """
+    # get user courses
+    # check for passing
+    # send downstream
+    pass
