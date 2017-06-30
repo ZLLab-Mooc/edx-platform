@@ -2,7 +2,8 @@
 Signal handler for setting default course verification dates
 """
 from django.core.exceptions import ObjectDoesNotExist
-from django.dispatch.dispatcher import Signal, receiver
+from django.dispatch import Signal
+from django.dispatch.dispatcher import receiver
 
 from xmodule.modulestore.django import SignalHandler, modulestore
 
@@ -23,11 +24,3 @@ def _listen_for_course_publish(sender, course_key, **kwargs):  # pylint: disable
                 VerificationDeadline.set_deadline(course_key, course.end)
         except ObjectDoesNotExist:
             VerificationDeadline.set_deadline(course_key, course.end)
-
-
-# Signal that indicates that a user has become verified
-LEARNER_NOW_VERIFIED = Signal(
-    providing_args=[
-        'user',  # user object
-    ]
-)

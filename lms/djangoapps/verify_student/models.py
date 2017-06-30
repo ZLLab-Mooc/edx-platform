@@ -41,12 +41,12 @@ from lms.djangoapps.verify_student.ssencrypt import (
     random_aes_key,
     rsa_encrypt
 )
+from openedx.core.djangoapps.signals.signals import LEARNER_NOW_VERIFIED
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.xmodule_django.models import CourseKeyField
 from openedx.core.djangolib.model_mixins import DeprecatedModelMixin
 from openedx.core.storage import get_storage
 
-from .signals import LEARNER_NOW_VERIFIED
 
 log = logging.getLogger(__name__)
 

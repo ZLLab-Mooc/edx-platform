@@ -14,11 +14,11 @@ from certificates.models import \
     CertificateWhitelist, \
     GeneratedCertificate
 from certificates.tasks import generate_certificate
-from common.djangoapps.student.models import CourseEnrollment
 from courseware import courses
 from lms.djangoapps.grades.new.course_grade_factory import CourseGradeFactory
 from openedx.core.djangoapps.models.course_details import COURSE_PACING_CHANGE
-from openedx.core.djangoapps.signals.signals import COURSE_GRADE_NOW_PASSED
+from openedx.core.djangoapps.signals.signals import COURSE_GRADE_NOW_PASSED, LEARNER_NOW_VERIFIED
+from student.models import CourseEnrollment
 
 
 log = logging.getLogger(__name__)
@@ -112,8 +112,19 @@ def _listen_for_track_change(sender, user, **kwargs):  # pylint: disable=unused-
     Catches a track change signal, determines user status, fires "generate cert" task
 
     """
-    user_enrollments = CourseEnrollment.enrollments_for_user(user=user)
-    for enrollment in user_enrollments:
-        # This will read and update a user grade, if passed, will fire
-        # 'COURSE_GRADE_NOW_PASSED' signal downstream
-        CourseGradeFactory().read(user, course=enrollment.course.id)
+    if (
+        not waffle.waffle().is_enabled(waffle.SELF_PACED_ONLY) and
+        not waffle.waffle().is_enabled(waffle.INSTRUCTOR_PACED_ONLY)
+    ):
+        return
+
+    # This will read and update a user grade, if passed, will fire
+    # 'COURSE_GRADE_NOW_PASSED' signal downstream, including downstream
+    # waffle switch sorting for self paced/instructor paced.
+    if (
+        waffle.waffle().is_enabled(waffle.SELF_PACED_ONLY) or
+        waffle.waffle().is_enabled(waffle.INSTRUCTOR_PACED_ONLY)
+    ):
+        user_enrollments = CourseEnrollment.enrollments_for_user(user=user)
+        for enrollment in user_enrollments:
+            CourseGradeFactory().read(user, course=enrollment.course.id)

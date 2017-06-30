@@ -19,3 +19,10 @@ COURSE_GRADE_NOW_PASSED = Signal(
         'course_key',  # course.id
     ]
 )
+
+# Signal that indicates that a user has become verified
+LEARNER_NOW_VERIFIED = Signal(
+    providing_args=[
+        'user',  # user object
+    ]
+)
