@@ -16,7 +16,7 @@ from common.test.utils import MockSignalHandlerMixin, disable_signal
 from course_modes.models import CourseMode
 from course_modes.tests.factories import CourseModeFactory
 from discussion_api import api
-from discussion_api.tests.utils import CommentsServiceMockMixin
+from discussion_api.tests.utils import CommentsServiceMockMixin, make_minimal_cs_thread
 from django_comment_client.constants import TYPE_ENTRY, TYPE_SUBCATEGORY
 from django_comment_client.permissions import get_team
 from django_comment_client.tests.group_id import (
@@ -1897,7 +1897,8 @@ class CourseDiscussionsHandlerTestCase(DividedDiscussionsTestCase):
         self.assertEqual(response, expected_response)
 
 
-class ThreadViewedEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase):
+@ddt.ddt
+class ThreadViewedEventTestCase(ForumsEnableMixin, ModuleStoreTestCase):
     """
     Forum thread views are expected to launch analytics events. Test these here.
     """
@@ -1906,7 +1907,9 @@ class ThreadViewedEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase):
     CATEGORY_NAME = 'Discussion 1'
     PARENT_CATEGORY_NAME = 'Chapter 1'
 
+    DUMMY_THREAD_ID = 'dummy_thread_id'
     DUMMY_TITLE = 'Dummy title'
+    DUMMY_URL = 'https://example.com/dummy/url/'
 
     def setUp(self):
         super(ThreadViewedEventTestCase, self).setUp()
@@ -1935,43 +1938,45 @@ class ThreadViewedEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase):
         )
         CourseTeamMembershipFactory.create(team=self.team, user=self.student)
 
+    @ddt.data(False, True)
+    @patch('django.template.loader.render_to_string')
+    @patch('requests.request', autospec=True)
     @patch('eventtracking.tracker.emit')
-    @patch('lms.lib.comment_client.utils.requests.request', autospec=True)
-    def test_thread_viewed_event(self, __, mock_emit):
-        create_request = RequestFactory().post(
-            'dummy_url', {
-                'thread_type': 'discussion',
-                'body': 'Test text',
-                'title': self.DUMMY_TITLE,
-                'auto_subscribe': True,
-            }
+    def test_thread_viewed_event(self, use_ajax, mock_emit, mock_request, mock_render):
+        mock_render.return_value = ''
+        mock_request.side_effect = make_mock_request_impl(
+            course=self.course,
+            text=self.DUMMY_TITLE,
+            thread_id=self.DUMMY_THREAD_ID,
+            commentable_id=self.category.discussion_id,
         )
-        create_request.user = self.student
-        create_request.view_name = 'create_thread'
-        create_response = create_thread(
-            create_request,
-            course_id=unicode(self.course.id),
-            commentable_id=self.category.discussion_id
+        get_request = RequestFactory().get(
+            self.DUMMY_URL,
+            HTTP_REFERER=self.DUMMY_URL,
+            **(
+                {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'} if use_ajax
+                else {'HTTP_ACCEPT_LANGUAGE': 'eo'}
+            )
         )
-        self.assertEqual(create_response.status_code, 200)
-        from pprint import pformat; print pformat(json.loads(create_response.content))
-        thread = json.loads(create_response.content)['thread_data']
-
-        get_request = RequestFactory().get('dummy_url')
-        get_request.user = self.staff
-        get_request.view_name = 'single_thread'
-        views.single_thread(get_request, unicode(self.course.id), self.category.discussion_id, thread_id)
+        get_request.user = self.student
+        views.single_thread(
+            get_request,
+            unicode(self.course.id),
+            self.category.discussion_id,
+            self.DUMMY_THREAD_ID,
+        )
 
         expected_event = {
-            'id': thread_id,
+            'id': self.DUMMY_THREAD_ID,
             'title': self.DUMMY_TITLE,
             'commentable_id': self.category.discussion_id,
-            'category_id': self.category.dicussion_id,
+            'category_id': self.category.discussion_id,
             'category_name': self.category.discussion_target,
             'user_forums_roles': [FORUM_ROLE_STUDENT],
             'user_course_roles': [],
             'target_username': self.student.username,
             'team_id': self.team.id,
+            'url': self.DUMMY_URL,
         }
         expected_event_items = expected_event.items()
 
@@ -1979,7 +1984,3 @@ class ThreadViewedEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase):
         self.assertEqual(event_name, 'edx.forum.thread.viewed')
         event_items = event.items()
         self.assertTrue(kv_pair in event_items for kv_pair in expected_event_items)
-        expected_path = '/courses/{0}/discussion/forum/{1}/threads/{2}'.format(
-            self.course.id, self.category.dicussion_id, thread_id
-        )
-        self.assertTrue(event['url'].endswith(expected_path))
