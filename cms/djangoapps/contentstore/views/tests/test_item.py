@@ -52,6 +52,7 @@ from opaque_keys.edx.locations import Location
 from xmodule.partitions.partitions import (
     Group, UserPartition, ENROLLMENT_TRACK_PARTITION_ID, MINIMUM_STATIC_PARTITION_ID
 )
+from xmodule.partitions.tests.test_partitions import MockPartitionService
 
 
 class AsideTest(XBlockAside):
@@ -640,6 +641,7 @@ class DuplicateHelper(object):
     def _duplicate_item(self, parent_usage_key, source_usage_key, display_name=None):
         """
         Duplicates the source.
+        Duplicates the source.
         """
         # pylint: disable=no-member
         data = {
@@ -1180,6 +1182,14 @@ class TestMoveItem(ItemTest):
         vert2 = self.store.get_item(self.vert2_usage_key)
         html = self.store.get_item(self.html_usage_key)
 
+        # Inject mock partition service as obtaining the course from the draft modulestore
+        # (which is the default for these tests) does not work.
+        partitions_service = MockPartitionService(
+            self.course,
+            course_id=self.course.id,
+        )
+        html.runtime._services['partitions'] = partitions_service
+
         # Set access settings so html will contradict vert2 when moved into that unit
         vert2.group_access = {self.course.user_partitions[0].id: [group1.id]}
         html.group_access = {self.course.user_partitions[0].id: [group2.id]}
@@ -1187,9 +1197,6 @@ class TestMoveItem(ItemTest):
         self.store.update_item(vert2, self.user.id)
 
         # Verify that there is no warning when html is in a non contradicting unit
-        key_store = DictKeyValueStore()
-        field_data = KvsFieldData(key_store)
-        self.runtime = TestRuntime(services={'field-data': field_data})  # pylint: disable=abstract-class-instantiated
         validation = html.validate()
         self.assertEqual(len(validation.messages), 0)
 
