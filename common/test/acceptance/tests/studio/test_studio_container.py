@@ -323,6 +323,7 @@ class BaseGroupConfigurationsTest(ContainerBase):
     VALIDATION_ERROR_LABEL = 'This component has validation issues.'
     VALIDATION_ERROR_MESSAGE = "Error:\nThis component's access settings refer to deleted or invalid groups."
     GROUP_VISIBILITY_MESSAGE = 'Access to some content in this unit is restricted to specific groups of learners.'
+    MODAL_NOT_RESTRICTED_MESSAGE = "Access is not restricted"
 
     def setUp(self):
         super(BaseGroupConfigurationsTest, self).setUp()
@@ -370,6 +371,13 @@ class BaseGroupConfigurationsTest(ContainerBase):
         component.edit_visibility()
         return ComponentVisibilityEditorView(self.browser, component.locator)
 
+    def edit_unit_visibility(self, unit):
+        """
+        Edit the visibility of a unit on the container page.
+        """
+        unit.edit_visibility()
+        return ComponentVisibilityEditorView(self.browser, unit.locator)
+
     def verify_current_groups_message(self, visibility_editor, expected_current_groups):
         """
         Check that the current visibility is displayed at the top of the dialog.
@@ -402,6 +410,7 @@ class BaseGroupConfigurationsTest(ContainerBase):
         """
         # Make initial edit(s) and save
         visibility_editor = self.edit_component_visibility(component)
+
         visibility_editor.select_groups_in_partition_scheme(partition_label, groups)
 
         # Re-open the modal and inspect its selected inputs. If no groups were selected,
@@ -412,6 +421,17 @@ class BaseGroupConfigurationsTest(ContainerBase):
         self.verify_selected_partition_scheme(visibility_editor, partition_label)
         self.verify_selected_groups(visibility_editor, groups)
         visibility_editor.save()
+
+    def select_and_verify_unit_group_access(self, unit, partition_label, groups=[]):
+        """
+        Edit the visibility of an xblock on the unit page and
+        verify that the edit persists. Note that `groups`
+        are labels which should be clicked, but are not necessarily checked.
+        """
+        unit_access_editor = self.edit_unit_visibility(unit)
+        unit_access_editor.select_groups_in_partition_scheme(partition_label, groups)
+        unit_access_editor = self.edit_unit_visibility(unit)
+        unit_access_editor.save()
 
     def verify_component_validation_error(self, component):
         """
@@ -433,6 +453,19 @@ class BaseGroupConfigurationsTest(ContainerBase):
         else:
             self.assertNotIn(self.GROUP_VISIBILITY_MESSAGE, self.container_page.sidebar_visibility_message)
             self.assertFalse(component.has_group_visibility_set)
+
+    def verify_unit_visibility_set(self, unit, set_groups=[]):
+        """
+        Verify that the container visibility modal shows that unit visibility
+        settings have been edited if there are `set_groups`. Otherwise verify
+        that the modal shows no such information.
+        """
+        unit_access_editor = self.edit_unit_visibility(unit)
+        if set_groups:
+            self.assertIn(", ".join(set_groups), unit_access_editor.current_groups_message)
+        else:
+            self.assertEqual(self.MODAL_NOT_RESTRICTED_MESSAGE, unit_access_editor.current_groups_message)
+        unit_access_editor.cancel()
 
     def update_component(self, component, metadata):
         """
@@ -547,6 +580,25 @@ class ContentGroupVisibilityModalTest(BaseGroupConfigurationsTest):
         self.select_and_verify_saved(self.html_component, self.CONTENT_GROUP_PARTITION, ['Dogs'])
         self.select_and_verify_saved(self.html_component, self.ALL_LEARNERS_AND_STAFF)
         self.verify_visibility_set(self.html_component, False)
+
+    def test_reset_unit_access_to_all_students_and_staff(self):
+        """
+        Scenario: The unit visibility modal can be set to be visible to all students and staff.
+            Given I have a unit
+            When I go to the container page for that unit
+            And I open the visibility editor modal for that unit
+            And I select 'Dogs'
+            And I save the modal
+            Then I re-open the modal, the unit access modal should display the content visibility settings
+            Then after re-opening the modal again
+            And I select 'All Learners and Staff'
+            And I save the modal
+            And I re-open the modal, the unit access modal should display that no content is restricted
+        """
+        self.select_and_verify_unit_group_access(self.container_page, self.CONTENT_GROUP_PARTITION, ['Dogs'])
+        self.verify_unit_visibility_set(self.container_page, set_groups=["Dogs"])
+        self.select_and_verify_unit_group_access(self.container_page, self.ALL_LEARNERS_AND_STAFF)
+        self.verify_unit_visibility_set(self.container_page)
 
     def test_select_single_content_group(self):
         """
