@@ -43,7 +43,7 @@ from django_comment_common.utils import ThreadContext, seed_permissions_roles
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect
 from lms.djangoapps.discussion import views
 from lms.djangoapps.discussion.views import course_discussions_settings_handler
-from lms.djangoapps.teams.tests.factories import CourseTeamFactory
+from lms.djangoapps.teams.tests.factories import CourseTeamFactory, CourseTeamMembershipFactory
 from lms.lib.comment_client.utils import CommentClientPaginatedResult
 from openedx.core.djangoapps.course_groups.models import CourseUserGroup
 from openedx.core.djangoapps.course_groups.tests.helpers import config_course_cohorts
@@ -1897,16 +1897,7 @@ class CourseDiscussionsHandlerTestCase(DividedDiscussionsTestCase):
         self.assertEqual(response, expected_response)
 
 
-@disable_signal(api, 'thread_created')
-@disable_signal(api, 'thread_voted')
-@patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
-class ThreadViewedEventTestCase(
-        ForumsEnableMixin,
-        CommentsServiceMockMixin,
-        UrlResetMixin,
-        SharedModuleStoreTestCase,
-        MockSignalHandlerMixin
-):
+class ThreadViewedEventTestCase(ForumsEnableMixin, SharedModuleStoreTestCase):
     """
     Forum thread views are expected to launch analytics events. Test these here.
     """
@@ -1917,15 +1908,18 @@ class ThreadViewedEventTestCase(
 
     DUMMY_TITLE = 'Dummy title'
 
-    @patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
     def setUp(self):
         super(ThreadViewedEventTestCase, self).setUp()
+
         self.course = CourseFactory.create()
         seed_permissions_roles(self.course.id)
+
         self.student = UserFactory.create()
         CourseEnrollmentFactory(user=self.student, course_id=self.course.id)
+
         self.staff = UserFactory.create(is_staff=True)
         UserBasedRole(user=self.staff, role=CourseStaffRole.ROLE).add_course(self.course.id)
+
         self.category = ItemFactory.create(
             parent_location=self.course.location,
             category='discussion',
@@ -1939,17 +1933,20 @@ class ThreadViewedEventTestCase(
             topic_id='arbitrary-topic-id',
             discussion_topic_id=self.category.discussion_id,
         )
+        CourseTeamMembershipFactory.create(team=self.team, user=self.student)
 
     @patch('eventtracking.tracker.emit')
     @patch('lms.lib.comment_client.utils.requests.request', autospec=True)
     def test_thread_viewed_event(self, __, mock_emit):
-        create_request = RequestFactory().post('dummy_url', {
-            'thread_type': 'discussion',
-            'body': 'Test text',
-            'title': self.DUMMY_TITLE,
-            'auto_subscribe': True,
-        })
-        create_request.user = self.staff
+        create_request = RequestFactory().post(
+            'dummy_url', {
+                'thread_type': 'discussion',
+                'body': 'Test text',
+                'title': self.DUMMY_TITLE,
+                'auto_subscribe': True,
+            }
+        )
+        create_request.user = self.student
         create_request.view_name = 'create_thread'
         create_response = create_thread(
             create_request,
@@ -1957,10 +1954,11 @@ class ThreadViewedEventTestCase(
             commentable_id=self.category.discussion_id
         )
         self.assertEqual(create_response.status_code, 200)
-        thread = create_response.data['thread_data']
+        from pprint import pformat; print pformat(json.loads(create_response.content))
+        thread = json.loads(create_response.content)['thread_data']
 
-        get_request = RequestFactory().get('dummy_url', {'username': self.student.username})
-        get_request.user = self.student
+        get_request = RequestFactory().get('dummy_url')
+        get_request.user = self.staff
         get_request.view_name = 'single_thread'
         views.single_thread(get_request, unicode(self.course.id), self.category.discussion_id, thread_id)
 
@@ -1972,7 +1970,7 @@ class ThreadViewedEventTestCase(
             'category_name': self.category.discussion_target,
             'user_forums_roles': [FORUM_ROLE_STUDENT],
             'user_course_roles': [],
-            'target_username': self.staff.username,
+            'target_username': self.student.username,
             'team_id': self.team.id,
         }
         expected_event_items = expected_event.items()
