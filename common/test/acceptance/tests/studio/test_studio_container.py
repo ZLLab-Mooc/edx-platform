@@ -14,9 +14,9 @@ from common.test.acceptance.fixtures.course import XBlockFixtureDesc
 from common.test.acceptance.pages.lms.courseware import CoursewarePage
 from common.test.acceptance.pages.lms.create_mode import ModeCreationPage
 from common.test.acceptance.pages.lms.staff_view import StaffCoursewarePage
-from common.test.acceptance.pages.studio.component_editor import ComponentEditorView, ComponentVisibilityEditorView
+from common.test.acceptance.pages.studio.xblock_editor import XBlockEditorView, XBlockVisibilityEditorView
 from common.test.acceptance.pages.studio.container import ContainerPage
-from common.test.acceptance.pages.studio.html_component_editor import HtmlComponentEditorView
+from common.test.acceptance.pages.studio.html_component_editor import HtmlXBlockEditorView
 from common.test.acceptance.pages.studio.move_xblock import MoveModalView
 from common.test.acceptance.pages.studio.utils import add_discussion, drag
 from common.test.acceptance.tests.helpers import create_user_partition_json
@@ -276,7 +276,7 @@ class EditContainerTest(NestedVerticalTest):
         modified_name = 'modified'
         self.assertNotEqual(component.name, modified_name)
         component.edit()
-        component_editor = ComponentEditorView(self.browser, component.locator)
+        component_editor = XBlockEditorView(self.browser, component.locator)
         component_editor.set_field_value_and_save('Display Name', modified_name)
         self.assertEqual(component.name, modified_name)
 
@@ -307,7 +307,7 @@ class EditContainerTest(NestedVerticalTest):
         component = container.xblocks[1].children[0]
         component.edit()
 
-        html_editor = HtmlComponentEditorView(self.browser, component.locator)
+        html_editor = HtmlXBlockEditorView(self.browser, component.locator)
         html_editor.set_content_and_save(modified_content, raw=True)
 
         #note we're expecting the <p> tags to have been removed
@@ -315,10 +315,10 @@ class EditContainerTest(NestedVerticalTest):
 
 
 class BaseGroupConfigurationsTest(ContainerBase):
-    ALL_LEARNERS_AND_STAFF = ComponentVisibilityEditorView.ALL_LEARNERS_AND_STAFF
+    ALL_LEARNERS_AND_STAFF = XBlockVisibilityEditorView.ALL_LEARNERS_AND_STAFF
     CHOOSE_ONE = "Select a group type"
-    CONTENT_GROUP_PARTITION = ComponentVisibilityEditorView.CONTENT_GROUP_PARTITION
-    ENROLLMENT_TRACK_PARTITION = ComponentVisibilityEditorView.ENROLLMENT_TRACK_PARTITION
+    CONTENT_GROUP_PARTITION = XBlockVisibilityEditorView.CONTENT_GROUP_PARTITION
+    ENROLLMENT_TRACK_PARTITION = XBlockVisibilityEditorView.ENROLLMENT_TRACK_PARTITION
     MISSING_GROUP_LABEL = 'Deleted Group\nThis group no longer exists. Choose another group or do not restrict access to this component.'
     VALIDATION_ERROR_LABEL = 'This component has validation issues.'
     VALIDATION_ERROR_MESSAGE = "Error:\nThis component's access settings refer to deleted or invalid groups."
@@ -369,14 +369,14 @@ class BaseGroupConfigurationsTest(ContainerBase):
         Edit the visibility of an xblock on the container page.
         """
         component.edit_visibility()
-        return ComponentVisibilityEditorView(self.browser, component.locator)
+        return XBlockVisibilityEditorView(self.browser, component.locator)
 
     def edit_unit_visibility(self, unit):
         """
         Edit the visibility of a unit on the container page.
         """
         unit.edit_visibility()
-        return ComponentVisibilityEditorView(self.browser, unit.locator)
+        return XBlockVisibilityEditorView(self.browser, unit.locator)
 
     def verify_current_groups_message(self, visibility_editor, expected_current_groups):
         """
@@ -1094,7 +1094,7 @@ class UnitPublishingTest(ContainerBase):
         unit = self.go_to_unit_page()
         component = unit.xblocks[1]
         component.edit()
-        HtmlComponentEditorView(self.browser, component.locator).set_content_and_save(modified_content)
+        HtmlXBlockEditorView(self.browser, component.locator).set_content_and_save(modified_content)
         self.assertEqual(component.student_content, modified_content)
         unit.verify_publish_title(self.DRAFT_STATUS)
         unit.publish_action.click()
@@ -1117,7 +1117,7 @@ class UnitPublishingTest(ContainerBase):
         unit = self.go_to_unit_page()
         component = unit.xblocks[1]
         component.edit()
-        HtmlComponentEditorView(self.browser, component.locator).set_content_and_cancel("modified content")
+        HtmlXBlockEditorView(self.browser, component.locator).set_content_and_cancel("modified content")
         self.assertEqual(component.student_content, "Body of HTML Unit.")
         unit.verify_publish_title(self.PUBLISHED_LIVE_STATUS)
         self.browser.refresh()
