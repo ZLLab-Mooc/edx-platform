@@ -1,0 +1,108 @@
+body { 
+    margin:0;
+    padding:0;
+    font-family:helvetica, sans-serif; 
+}
+
+
+.buttons1 {
+	min-width: 700px;
+	max-width: 700px;
+	text-align: center;
+	padding-top: 100px;
+	padding-left: 20px;
+	padding-right: 20px;
+	position: relative;
+	margin: auto;
+}
+
+#entry1 {
+	float: left;
+	width: 100px;
+	height: 100px;
+}
+
+#entry2 {
+	float: left;
+	margin-left: 80px;
+	width: 100px;
+	height: 100px;
+
+}
+
+#entry3 {
+	float: left;
+	margin-left: 80px;
+	width: 100px;
+	height: 100px;
+
+}
+
+#entry4 {
+	float: left;
+	margin-left: 80px;
+	width: 100px;
+	height: 100px;
+
+}
+
+
+.buttons2 {
+    min-width: 700px;
+    max-width: 700px;
+    margin:auto;
+	padding-top: 170px;
+	padding-left: 20px;
+	padding-right: 20px;
+}
+
+#entry5 {
+	margin-left: 12.5%;
+	float: left;
+    margin-right: 80px;
+	width: 100px;
+	height: 100px;
+}
+
+#entry6 {
+	float: left;
+	text-align: center;
+	width: 100px;
+	height: 100px;
+
+}
+
+#entry7 {
+	float: left;
+	margin-left: 80px;
+	width: 100px;
+	height: 100px;
+
+}
+
+.entry:hover {
+	-webkit-filter: drop-shadow(8px 8px 10px #B0C4DE);
+	filter: drop-shadow(8px 8px 10px #B0C4DE);
+}
+
+#bottomdiv {
+	z-index:-99999;
+	position: fixed;
+	width: 100%;
+	text-align: center;
+	bottom:0px;
+	margin:0px;
+	float:left;
+}
+
+#bottomline {
+	color: #B0C4DE;
+	font-size: 12px;
+}
+
+
+
+
+
+
+
