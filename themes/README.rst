@@ -136,7 +136,7 @@ directory. There are two ways to do this.
     ``COMPREHENSIVE_THEME_DIR`` value::
 
         "COMPREHENSIVE_THEME_DIR": "/full/path/to/my-theme",
-
+                                        /edx/app/edxapp/edx-platform/themes/
 Restart your site.  Your changes should now be visible.
 
 
