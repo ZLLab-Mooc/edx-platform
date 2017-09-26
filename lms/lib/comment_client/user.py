@@ -27,7 +27,8 @@ class User(models.Model):
     def from_django_user(cls, user):
         return cls(id=str(user.id),
                    external_id=str(user.id),
-                   username=user.username)
+                      username=user.username)
+
 
     def follow(self, source):
         params = {'source_type': source.type, 'source_id': source.id}
@@ -115,15 +116,23 @@ class User(models.Model):
         )
         return response.get('collection', []), response.get('page', 1), response.get('num_pages', 1)
 
-    def _retrieve(self, *args, **kwargs):
+    def _retrieve(self, *args, **kwargs):#args=[],kwargs={}
+        #: params:{'username':u'staff','external_id':'5','id':'5'}
+        #url=http://localhost:18080/api/v1/users/5
         url = self.url(action='get', params=self.attributes)
+        #{'complete':True}
         retrieve_params = self.default_retrieve_params.copy()
         retrieve_params.update(kwargs)
+        #False
         if self.attributes.get('course_id'):
             retrieve_params['course_id'] = self.course_id.to_deprecated_string()
+        #False
         if self.attributes.get('group_id'):
             retrieve_params['group_id'] = self.group_id
         try:
+            #url=http://localhost:18080/api/v1/users/5
+            #retrieve_params={'comolete':True}
+            #[u'module_class:User']
             response = perform_request(
                 'get',
                 url,
@@ -131,6 +140,7 @@ class User(models.Model):
                 metric_action='model.retrieve',
                 metric_tags=self._metric_tags,
             )
+            #return
         except CommentClientRequestError as e:
             if e.status_code == 404:
                 # attempt to gracefully recover from a previous failure

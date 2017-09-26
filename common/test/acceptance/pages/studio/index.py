@@ -160,7 +160,7 @@ class DashboardPage(PageObject):
         Selects item in autocomplete where text of item matches item_text.
         """
         self.wait_for_element_visibility(
-            ".ui-autocomplete .ui-menu-item", "Autocomplete widget is visible"
+            ".ui-autocomplete .ui-menu-item", "Autocomplete widgets is visible"
         )
         self.q(css='.ui-autocomplete .ui-menu-item a').filter(lambda el: el.text == item_text)[0].click()
 

@@ -275,7 +275,7 @@ def use_plugin(button_class, action):
 
 def use_code_editor(action):
     # Click on plugin button
-    buttons = world.css_find('div.mce-widget>button')
+    buttons = world.css_find('div.mce-widgets>button')
 
     code_editor = [button for button in buttons if button.text == 'HTML']
     assert_equal(1, len(code_editor))

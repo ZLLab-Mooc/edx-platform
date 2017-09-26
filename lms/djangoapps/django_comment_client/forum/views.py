@@ -6,6 +6,7 @@ from functools import wraps
 import json
 import logging
 
+from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.context_processors import csrf
@@ -225,13 +226,12 @@ def forum_form_discussion(request, course_key):
     Renders the main Discussion page, potentially filtered by a search query
     """
     nr_transaction = newrelic.agent.current_transaction()
-
+    #: course=check course_access then get_course_by_id
     course = get_course_with_access(request.user, 'load', course_key, check_if_enrolled=True)
     course_settings = make_course_settings(course, request.user)
 
     user = cc.User.from_django_user(request.user)
     user_info = user.to_dict()
-
     try:
         unsafethreads, query_params = get_threads(request, course)   # This might process a search query
         is_staff = has_permission(request.user, 'openclose_thread', course.id)

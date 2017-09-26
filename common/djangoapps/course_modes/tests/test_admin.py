@@ -48,7 +48,7 @@ class AdminCourseModePageTest(ModuleStoreTestCase):
             'mode_display_name': 'verified',
             'min_price': 10,
             'currency': 'usd',
-            '_expiration_datetime_0': expiration.date(),  # due to django admin datetime widget passing as separate vals
+            '_expiration_datetime_0': expiration.date(),  # due to django admin datetime widgets passing as separate vals
             '_expiration_datetime_1': expiration.time(),
 
         }

@@ -8,7 +8,8 @@
   box-shadow: 0 1px 2px 0 $shadow-l1;
   margin: 0;
   padding: 0 $baseline;
-  background: $white;
+
+ // background: $white;
 
   header.primary {
     @include box-sizing(border-box);
@@ -23,7 +24,7 @@
 
   // basic layout
   .wrapper-l, .wrapper-r {
-    background: $white;
+    //background: $white;
   }
 
   .wrapper-l {

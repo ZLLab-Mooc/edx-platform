@@ -48,27 +48,34 @@ def request_timer(request_id, method, url, tags=None):
             duration=duration
         )
     )
-
-
+#method='get'
+#url=http://localhost:18080/api/v1/users/5
+#data_or_params={'comolete':True}
+#raw=False
+#metric_action='model.retrieve'
+#metric_tags=[u'module_class:User']
+#paged_results=False
 def perform_request(method, url, data_or_params=None, raw=False,
                     metric_action=None, metric_tags=None, paged_results=False):
 
     if metric_tags is None:
         metric_tags = []
-
+    #metric_tags=[u'module_class:User',u'method:get']
     metric_tags.append(u'method:{}'.format(method))
+    #metric_tags=[u'module_class:User',u'method:get',u'action:model.retrieve']
     if metric_action:
         metric_tags.append(u'action:{}'.format(metric_action))
 
     if data_or_params is None:
         data_or_params = {}
     headers = {
+        #COMMENTS_SERVICE_KEY=password
         'X-Edx-Api-Key': getattr(settings, "COMMENTS_SERVICE_KEY", None),
         'Accept-Language': get_language(),
     }
+    #headers={'X-Edx-Api-Key':u'password','Accept-Language':u'en'}
     request_id = uuid4()
     request_id_dict = {'request_id': request_id}
-
     if method in ['post', 'put', 'patch']:
         data = data_or_params
         params = request_id_dict
@@ -84,7 +91,6 @@ def perform_request(method, url, data_or_params=None, raw=False,
             headers=headers,
             timeout=5
         )
-
     metric_tags.append(u'status_code:{}'.format(response.status_code))
     if response.status_code > 200:
         metric_tags.append(u'result:failure')

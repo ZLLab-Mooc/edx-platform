@@ -89,7 +89,7 @@ class PasswordResetFormNoActive(PasswordResetForm):
 
 class TrueCheckbox(widgets.CheckboxInput):
     """
-    A checkbox widget that only accepts "true" (case-insensitive) as true.
+    A checkbox widgets that only accepts "true" (case-insensitive) as true.
     """
     def value_from_datadict(self, data, files, name):
         value = data.get(name, '')

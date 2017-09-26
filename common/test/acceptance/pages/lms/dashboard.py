@@ -153,7 +153,7 @@ class DashboardPage(PageObject):
         return self.q(css='ul.listing-courses')
 
     def get_course_social_sharing_widget(self, widget_name):
-        """ Retrieves the specified social sharing widget by its classification """
+        """ Retrieves the specified social sharing widgets by its classification """
         return self.q(css='a.action-{}'.format(widget_name))
 
     def get_courses(self):
